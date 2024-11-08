@@ -11,7 +11,7 @@ provider "azurerm" {
 
 # Data block to use an existing resource group
 data "azurerm_resource_group" "existing_rg" {
-  name = var.resource_group_name
+  name     = var.resource_group_name
 }
 
 # AKS cluster, using the existing resource group
@@ -38,9 +38,9 @@ resource "azurerm_kubernetes_cluster" "aks_cluster" {
 
 # Assign AKS identity (managed identity) the ACR Pull role for GHCR access
 resource "azurerm_role_assignment" "aks_to_ghcr" {
-  principal_id         = azurerm_kubernetes_cluster.aks_cluster.identity[0].principal_id
-  role_definition_name = "AcrPull"                               # This role allows AKS to pull from the container registry
-  scope                = "/subscriptions/${var.subscription_id}" # Scope to the GHCR repository
+  principal_id       = azurerm_kubernetes_cluster.aks_cluster.identity[0].principal_id
+  role_definition_name = "AcrPull"  # This role allows AKS to pull from the container registry
+  scope               = "/subscriptions/${var.subscription_id}"  # Scope to the GHCR repository
 }
 
 # Output the AKS cluster name
