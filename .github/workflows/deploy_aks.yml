@@ -14,9 +14,9 @@ jobs:
       uses: azure/aks-set-context@v1
       with:
        client-id: ${{ secrets.AZURE_CLIENT_ID }}
-       client-secret: ${{ secrets.AZURE_CLIENT_SECRET }}
-       subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-       tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+       client-secret: ${{ secrets.AZURE_CAS }}
+       subscription-id: ${{ secrets.AZURE_SUB }}
+       tenant-id: ${{ secrets.AZURE_IOD }}
        cluster-name: dev-aks
        resource-group: gitops
     - name: Apply Kubernetes manifest
