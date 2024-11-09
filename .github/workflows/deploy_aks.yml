@@ -1,27 +1,29 @@
-
 on:
   push:
     branches:
       - main
+
 jobs:
   build:
-  permissions:
-     id-token: write
-     contents: read
-  runs-on: ubuntu-latest
+    runs-on: ubuntu-latest
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v2
-      
-    - name: Deploy to AKS
-      uses: azure/login@v1
-      with:
-       client-id: ${{ secrets.AZURE_CLIENT_ID }}
-       client-secret: ${{ secrets.AZURE_CAS }}
-       subscription-id: ${{ secrets.AZURE_SUB }}
-       tenant-id: ${{ secrets.AZURE_IOD }}
-       cluster-name: dev-aks
-       resource-group: gitops
-    - name: Apply Kubernetes manifest
-      run: |
-        kubectl apply -f app-deployment/pod.yaml
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Azure Login
+        uses: azure/login@v1
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          client-secret: ${{ secrets.AZURE_CAS }}
+          subscription-id: ${{ secrets.AZURE_SUB }}
+          tenant-id: ${{ secrets.AZURE_IOD }}
+
+      - name: Set AKS Context
+        uses: azure/aks-set-context@v3
+        with:
+          resource-group: gitops
+          cluster-name: dev-aks
+
+      - name: Apply Kubernetes manifest
+        run: |
+          kubectl apply -f app-deployment/pod.yaml
