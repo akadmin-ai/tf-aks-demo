@@ -21,6 +21,7 @@ jobs:
           client-secret: ${{ secrets.AZURE_CAS }}
           subscription-id: ${{ secrets.AZURE_SUB }}
           tenant-id: ${{ secrets.AZURE_IOD }}
+          auth-type: "oidc"
 
       - name: Set AKS Context
         uses: azure/aks-set-context@v3
