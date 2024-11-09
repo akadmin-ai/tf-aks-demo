@@ -1,96 +1,24 @@
-name: Build and deploy to AKS using Terraform
 
 on:
   push:
-    branches: ["main"]
-  workflow_dispatch:
-
-
+    branches:
+      - main
 jobs:
-  terraform:
+  build:
     runs-on: ubuntu-latest
-    env:
-      ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
-      ARM_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
-      ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-      ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
-      DEPLOYMENT_MANIFEST_PATH: "./app.yaml" # Update with actual path to Kubernetes manifest
-      TF_WORKING_DIR: "./terraform" # Adjust if needed      
     steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up Terraform
-        uses: hashicorp/setup-terraform@v2
-        with:
-          terraform_version: 1.4.6 # Update if required
-
-      - name: Terraform Init
-        run: terraform init
-        working-directory: ${{ env.TF_WORKING_DIR }}
-
-      - name: Terraform Plan
-        run: terraform plan -out=tfplan
-        working-directory: ${{ env.TF_WORKING_DIR }}
-
-      - name: Terraform Apply
-        run: terraform apply "tfplan"
-        working-directory: ${{ env.TF_WORKING_DIR }}
-
-  buildImage:
-    permissions:
-      contents: read
-      id-token: write
-    runs-on: ubuntu-latest
-    needs: setup-terraform
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Azure login
-        uses: azure/login@v1
-        with:
-          client-id: ${{ secrets.AZURE_CLIENT_ID }}
-          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
-          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-
-      - name: Build and push image to ACR
-        run: |
-          az acr build --image ${{ env.AZURE_CONTAINER_REGISTRY }}.azurecr.io/${{ env.CONTAINER_NAME }}:${{ github.sha }} \
-                       --registry ${{ env.AZURE_CONTAINER_REGISTRY }} \
-                       -g ${{ env.RESOURCE_GROUP }} .
-
-  deploy:
-    permissions:
-      contents: read
-      id-token: write
-    runs-on: ubuntu-latest
-    needs: buildImage
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Azure login
-        uses: azure/login@v1
-        with:
-          client-id: ${{ secrets.AZURE_CLIENT_ID }}
-          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
-          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-
-      - name: Set up kubelogin for non-interactive login
-        uses: azure/use-kubelogin@v1
-        with:
-          kubelogin-version: 'v0.0.25'
-
-      - name: Get K8s context
-        uses: azure/aks-set-context@v3
-        with:
-          resource-group: ${{ env.RESOURCE_GROUP }}
-          cluster-name: ${{ env.CLUSTER_NAME }}
-          admin: 'false'
-          use-kubelogin: 'true'
-
-      - name: Deploy application
-        uses: azure/k8s-deploy@v4
-        with:
-          action: deploy
-          manifests: ${{ env.DEPLOYMENT_MANIFEST_PATH }}
-          images: |
-            ${{ env.AZURE_CONTAINER_REGISTRY }}.azurecr.io/${{ env.CONTAINER_NAME }}:${{ github.sha }}
+    - name: Checkout code
+      uses: actions/checkout@v2
+      
+    - name: Deploy to AKS
+      uses: azure/aks-set-context@v1
+      with:
+       client-id: ${{ secrets.AZURE_CLIENT_ID }}
+       client-secret: ${{ secrets.AZURE_CLIENT_SECRET }}
+       subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+       tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+       cluster-name: dev-aks
+       resource-group: gitops
+    - name: Apply Kubernetes manifest
+      run: |
+        kubectl apply -f app-deployment/pod.yaml
