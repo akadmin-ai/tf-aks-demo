@@ -5,20 +5,17 @@ on:
     branches: ["main"]
   workflow_dispatch:
 
-env:
-  AZURE_CONTAINER_REGISTRY: "your-azure-container-registry" # Set the registry name without '.azurecr.io'
-  CONTAINER_NAME: "http-echo-app"
-  RESOURCE_GROUP: ${{ secrets.AZURE_RESOURCE_GROUP }}
-  CLUSTER_NAME: ${{ secrets.AZURE_CLUSTER_NAME }}
-  DEPLOYMENT_MANIFEST_PATH: "path/to/your/manifest.yaml" # Update with actual path to Kubernetes manifest
-  TF_WORKING_DIR: "./terraform" # Adjust if needed
 
 jobs:
-  setup-terraform:
-    permissions:
-      contents: read
-      id-token: write
+  terraform:
     runs-on: ubuntu-latest
+    env:
+      ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+      ARM_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+      ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      DEPLOYMENT_MANIFEST_PATH: "./app.yaml" # Update with actual path to Kubernetes manifest
+      TF_WORKING_DIR: "./terraform" # Adjust if needed      
     steps:
       - uses: actions/checkout@v4
 
