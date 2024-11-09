@@ -1,58 +1,99 @@
-name: Deploy AKS and Kubernetes Resources
+name: Build and deploy to AKS using Terraform
 
 on:
   push:
-    branches:
-      - main
-  pull_request:
-    branches:
-      - main
+    branches: ["main"]
+  workflow_dispatch:
+
+env:
+  AZURE_CONTAINER_REGISTRY: "your-azure-container-registry" # Set the registry name without '.azurecr.io'
+  CONTAINER_NAME: "http-echo-app"
+  RESOURCE_GROUP: ${{ secrets.AZURE_RESOURCE_GROUP }}
+  CLUSTER_NAME: ${{ secrets.AZURE_CLUSTER_NAME }}
+  DEPLOYMENT_MANIFEST_PATH: "path/to/your/manifest.yaml" # Update with actual path to Kubernetes manifest
+  TF_WORKING_DIR: "./terraform" # Adjust if needed
 
 jobs:
-  terraform:
+  setup-terraform:
+    permissions:
+      contents: read
+      id-token: write
     runs-on: ubuntu-latest
-    env:
-      ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
-      ARM_CLIENT_SECRET: ${{ secrets.AZURE_CAS }}
-      ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUB}}
-      ARM_TENANT_ID: ${{ secrets.AZURE_IOD }}
-
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v2
+      - uses: actions/checkout@v4
 
       - name: Set up Terraform
         uses: hashicorp/setup-terraform@v2
         with:
-          terraform_version: 1.3.6  # Specify the Terraform version
+          terraform_version: 1.4.6 # Update if required
 
       - name: Terraform Init
         run: terraform init
-
-      - name: Terraform Format
-        run: terraform fmt -check -recursive
-
-      - name: Terraform Validate
-        run: terraform validate
+        working-directory: ${{ env.TF_WORKING_DIR }}
 
       - name: Terraform Plan
         run: terraform plan -out=tfplan
+        working-directory: ${{ env.TF_WORKING_DIR }}
 
       - name: Terraform Apply
-        if: github.event_name == 'push'
-        run: terraform apply -auto-approve tfplan
+        run: terraform apply "tfplan"
+        working-directory: ${{ env.TF_WORKING_DIR }}
 
-      - name: Deploy Kubernetes Resources
-        if: github.event_name == 'push'
-        env:
-          KUBE_CONFIG_DATA: ${{ secrets.KUBE_CONFIG_DATA }}
+  buildImage:
+    permissions:
+      contents: read
+      id-token: write
+    runs-on: ubuntu-latest
+    needs: setup-terraform
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Azure login
+        uses: azure/login@v1
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Build and push image to ACR
         run: |
-          echo "$KUBE_CONFIG_DATA" | base64 -d > kubeconfig
-          export KUBECONFIG=$(pwd)/kubeconfig
+          az acr build --image ${{ env.AZURE_CONTAINER_REGISTRY }}.azurecr.io/${{ env.CONTAINER_NAME }}:${{ github.sha }} \
+                       --registry ${{ env.AZURE_CONTAINER_REGISTRY }} \
+                       -g ${{ env.RESOURCE_GROUP }} .
 
-          # Deploy Kubernetes resources with kubectl
-          kubectl apply -f kubernetes_manifests/  # Update this path if needed
+  deploy:
+    permissions:
+      contents: read
+      id-token: write
+    runs-on: ubuntu-latest
+    needs: buildImage
+    steps:
+      - uses: actions/checkout@v4
 
-      - name: Clean up kubeconfig
-        if: github.event_name == 'push'
-        run: rm -f kubeconfig
+      - name: Azure login
+        uses: azure/login@v1
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Set up kubelogin for non-interactive login
+        uses: azure/use-kubelogin@v1
+        with:
+          kubelogin-version: 'v0.0.25'
+
+      - name: Get K8s context
+        uses: azure/aks-set-context@v3
+        with:
+          resource-group: ${{ env.RESOURCE_GROUP }}
+          cluster-name: ${{ env.CLUSTER_NAME }}
+          admin: 'false'
+          use-kubelogin: 'true'
+
+      - name: Deploy application
+        uses: azure/k8s-deploy@v4
+        with:
+          action: deploy
+          manifests: ${{ env.DEPLOYMENT_MANIFEST_PATH }}
+          images: |
+            ${{ env.AZURE_CONTAINER_REGISTRY }}.azurecr.io/${{ env.CONTAINER_NAME }}:${{ github.sha }}
