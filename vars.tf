@@ -23,6 +23,7 @@ variable "tenant_id" {
 variable "prefix" {
   description = "Prefix for resource names"
   type        = string
+  default     = "poc"
 }
 
 # Location
@@ -50,4 +51,11 @@ variable "vm_size" {
 variable "environment" {
   description = "Environment (dev, staging, prod)"
   type        = string
+}
+
+# Environment tag
+variable "resource_group_name" {
+  description = "Default Resource Group for POC"
+  type        = string
+  default     = "gitops"
 }
