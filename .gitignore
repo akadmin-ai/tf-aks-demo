@@ -3,6 +3,6 @@ temp
 
 # Ignore Terraform state files
 .terraform
-terraform.tfstate
-terraform.tfstate.*
+terraform.tfstate*
+.terraform.tfstate*
 .terraform.lock.hcl

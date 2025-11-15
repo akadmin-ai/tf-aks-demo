@@ -53,7 +53,7 @@ variable "environment" {
   type        = string
 }
 
-# Environment tag
+# Resource Group name
 variable "resource_group_name" {
   description = "Default Resource Group for POC"
   type        = string
